@@ -3,26 +3,22 @@ package com.github.vividfuzhu.maxbattery;
 import java.util.List;
 
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 
-import com.github.vividfuzhu.maxbattery.machine.bronze.TileCoalFromCreosote;
-import com.github.vividfuzhu.maxbattery.machine.miner.MaxBatteryMiner;
+import com.github.vividfuzhu.maxbattery.machine.recipe.ModMachines;
+import com.github.vividfuzhu.maxbattery.machine.recipe.ModRecipes;
 
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.registry.GameRegistry;
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
 import gregtech.api.items.MetaBaseItem;
-import gregtech.api.recipe.RecipeMaps;
-import gregtech.api.util.GTUtility;
 
 @Mod(
     modid = MaxBattery.MODID,
@@ -45,105 +41,21 @@ public class MaxBattery {
     public void preInit(FMLPreInitializationEvent e) {
         System.out.println("Smart Battery Mod Loaded!");
 
-        try {
-            // 创建机器实例
-            TileCoalFromCreosote machine = new TileCoalFromCreosote(
-                27015,
-                "maxbattery.machine.coal_from_creosote",
-                "maxbattery.machine.coal_from_creosote");
-
-            // 直接放入 GregTechAPI 的 METATILEENTITIES 数组
-            if (27015 > 0 && 27015 < GregTechAPI.METATILEENTITIES.length) {
-                GregTechAPI.METATILEENTITIES[27015] = machine;
-                System.out.println("✓ Successfully registered machine at ID: " + 27015);
-            } else {
-                System.err.println("✗ Invalid machine ID: " + 27015);
-            }
-
-        } catch (Exception ex) {
-            System.err.println("✗ Failed to register machine: " + ex);
-            ex.printStackTrace();
-        }
+        // 委托：注册所有机器（包括青铜机和超速采矿机）
+        ModMachines.registerMachines();
     }
 
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent e) {
-        // === 智能电池的组装机配方（煤炭/木炭 → 智能电池）===
-        GTValues.RA.stdBuilder()
-            .itemInputs(
-                GTUtility.copyAmount(6, new ItemStack(Items.coal, 1, 0)), // 煤炭 (meta=0)
-                GTUtility.copyAmount(6, new ItemStack(Items.coal, 1, 1)) // 木炭 (meta=1)
-            )
-            .itemOutputs(new ItemStack(ITEM_SMART_BATTERY, 1))
-            .duration(5 * 20) // 5 秒
-            .eut(GTValues.V[1]) // 30 EU/t (LV)
-            .addTo(RecipeMaps.assemblerRecipes);
-
-        // === 智能电池的手工合成配方（4 煤炭 或 4 木炭）===
-        GameRegistry
-            .addRecipe(new ItemStack(ITEM_SMART_BATTERY, 1), "CC ", "CC ", "   ", 'C', new ItemStack(Items.coal, 1, 0)); // 煤炭
-                                                                                                                         // (meta=0)
-        GameRegistry
-            .addRecipe(new ItemStack(ITEM_SMART_BATTERY, 1), "CC ", "CC ", "   ", 'C', new ItemStack(Items.coal, 1, 1)); // 木炭
-                                                                                                                         // (meta=1)
-
-        // === 杂酚油→煤炭 青铜机器的工作台配方 ===
-        ItemStack creoCoalMachine = new ItemStack(GregTechAPI.sBlockMachines, 1, 27015);
-        if (creoCoalMachine != null && creoCoalMachine.getItem() != null) {
-            GameRegistry
-                .addRecipe(creoCoalMachine, "FFF", "F F", "FFF", 'F', new ItemStack(net.minecraft.init.Blocks.furnace)); // 使用完整类路径，不简化
-            System.out.println("✓ Registered crafting recipe for Creosote → Coal machine");
-        } else {
-            System.err.println("✗ Failed to get machine ItemStack for ID 27015");
-        }
-
-        // ============================================================================================================================
         // ========== 注册超速采矿机（LV, MV, HV）到 GregTech 的 MetaTileEntity 数组 ==========
-        // 使用 ID 27016 (LV), 27017 (MV), 27018 (HV)，直接赋值，不调用辅助方法
-        GregTechAPI.METATILEENTITIES[27016] = new MaxBatteryMiner(
-            27016, // 内部 ID
-            "maxbattery.miner.lv", // unlocalizedName
-            "【超速采矿机】(LV)", // 显示名称
-            1 // 电压等级：LV = 1
-        );
+        // GregTechAPI.METATILEENTITIES[27016] = new MaxBatteryMiner(27016, "maxbattery.miner.lv", "【超速采矿机】(LV)", 1);
+        // GregTechAPI.METATILEENTITIES[27017] = new MaxBatteryMiner(27017, "maxbattery.miner.mv", "【超速采矿机】(MV)", 2);
+        // GregTechAPI.METATILEENTITIES[27018] = new MaxBatteryMiner(27018, "maxbattery.miner.hv", "【超速采矿机】(HV)", 3);
 
-        GregTechAPI.METATILEENTITIES[27017] = new MaxBatteryMiner(27017, "maxbattery.miner.mv", "【超速采矿机】(MV)", 2 // MV =
-                                                                                                                 // 2
-        );
+        // System.out.println("[MaxBattery] Successfully registered 3 fast miners (LV, MV, HV) at IDs 27016～27018");
 
-        GregTechAPI.METATILEENTITIES[27018] = new MaxBatteryMiner(27018, "maxbattery.miner.hv", "【超速采矿机】(HV)", 3 // HV =
-                                                                                                                 // 3
-        );
-
-        System.out.println("[MaxBattery] Successfully registered 3 fast miners (LV, MV, HV) at IDs 27016~27018");
-
-        // ============================================================================================================================
-        // ========== 超速采矿机升级配方：原版挖矿机 + 红石 → 超速挖矿机 ==========
-        // 使用 Shapeless Recipe（无序合成），确保兼容带 NBT 的原版机器
-        // 红石作为低成本升级材料，避免 GT 屏蔽无消耗转换
-        try {
-            // 获取 GT 原版各电压挖矿机（通过 ItemList，保证 NBT 正确）
-            ItemStack originalLV = gregtech.api.enums.ItemList.Machine_LV_Miner.get(1);
-            ItemStack originalMV = gregtech.api.enums.ItemList.Machine_MV_Miner.get(1);
-            ItemStack originalHV = gregtech.api.enums.ItemList.Machine_HV_Miner.get(1);
-
-            // 构造你的超速挖矿机 ItemStack（使用已注册的 meta ID）
-            ItemStack upgradedLV = new ItemStack(GregTechAPI.sBlockMachines, 1, 27016);
-            ItemStack upgradedMV = new ItemStack(GregTechAPI.sBlockMachines, 1, 27017);
-            ItemStack upgradedHV = new ItemStack(GregTechAPI.sBlockMachines, 1, 27018);
-
-            // 注册合成配方：原版机器 + 1 红石 → 超速机器
-            GameRegistry.addShapelessRecipe(upgradedLV, originalLV, Items.redstone);
-            GameRegistry.addShapelessRecipe(upgradedMV, originalMV, Items.redstone);
-            GameRegistry.addShapelessRecipe(upgradedHV, originalHV, Items.redstone);
-
-            System.out
-                .println("✓ Registered crafting recipes: [Original Miner + Redstone] → MaxBatteryMiner (LV/MV/HV)");
-        } catch (Exception ex) {
-            System.err.println("✗ Failed to register MaxBatteryMiner crafting recipes!");
-            ex.printStackTrace();
-        }
-        // ============================================================================================================================
+        // ========== 委托给 ModRecipes 处理所有配方 ==========
+        ModRecipes.init(e);
     }
 
     public static class SmartBattery extends MetaBaseItem {

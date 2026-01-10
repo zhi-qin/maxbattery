@@ -141,13 +141,13 @@ public class TileCoalFromCreosote extends MTEBasicMachine {
         }
 
         // 产 3 个煤炭
-        ItemStack coal = new ItemStack(Items.coal, 3); // 直接创建 stackSize=3 的堆
+        ItemStack coal = new ItemStack(Items.coal, 1); // 直接创建 stackSize=1 的堆
         int outputSlot = getOutputSlot();
 
         if (mInventory[outputSlot] == null) {
             mInventory[outputSlot] = coal.copy();
         } else {
-            mInventory[outputSlot].stackSize += 3;
+            mInventory[outputSlot].stackSize += 1;
         }
     }
 }
