@@ -5,7 +5,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 
-import com.github.vividfuzhu.maxbattery.MaxBattery;
+import com.github.vividfuzhu.maxbattery.item.SmartBattery;
 
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -27,6 +27,19 @@ public class ModRecipes {
      */
     public static void init(FMLPostInitializationEvent event) {
 
+        // --- 新增：无限冷却热熔的合成配方 ---
+        // 4 个原石合成 1 个无限冷却热熔
+        GameRegistry.addShapedRecipe(
+            // 输出：1 个无限冷却热熔
+            // 注意：需要导入 MaxBattery 类以访问 ITEM_INFINITE_COOLANT_CELL
+            new ItemStack(com.github.vividfuzhu.maxbattery.MaxBattery.ITEM_INFINITE_COOLANT_CELL, 1),
+            // 配方形状：2x2 原石
+            "CC",
+            "CC",
+            // 字母 'C' 代表原石
+            'C',
+            new ItemStack(Blocks.cobblestone));
+
         // === 智能电池的组装机配方（煤炭/木炭 → 智能电池）===
         // 使用 GT 的 RecipeBuilder 构建一个组装机配方
         GTValues.RA.stdBuilder()
@@ -37,7 +50,7 @@ public class ModRecipes {
                 GTUtility.copyAmount(6, new ItemStack(Items.coal, 1, 1)))
             .itemOutputs(
                 // 输出：1 个智能电池（自定义物品）
-                new ItemStack(MaxBattery.ITEM_SMART_BATTERY, 1))
+                new ItemStack(SmartBattery.ITEM_SMART_BATTERY, 1))
             .duration(5 * 20) // 处理时间：5 秒（20 tick = 1 秒）
             .eut(GTValues.V[1]) // 能耗：30 EU/t（LV 电压等级）
             .addTo(RecipeMaps.assemblerRecipes); // 添加到组装机配方表
@@ -45,7 +58,7 @@ public class ModRecipes {
         // === 智能电池的手工合成配方（4 煤炭 或 4 木炭）===
         // 原版工作台合成：左上 2x2 放煤炭（普通）
         GameRegistry.addRecipe(
-            new ItemStack(MaxBattery.ITEM_SMART_BATTERY, 1), // 输出
+            new ItemStack(SmartBattery.ITEM_SMART_BATTERY, 1), // 输出
             "CC ", // 第一行：两个煤炭 + 一个空格
             "CC ", // 第二行：两个煤炭 + 一个空格
             "   ", // 第三行：全空
@@ -54,7 +67,7 @@ public class ModRecipes {
         );
         // 同样支持木炭合成
         GameRegistry.addRecipe(
-            new ItemStack(MaxBattery.ITEM_SMART_BATTERY, 1),
+            new ItemStack(SmartBattery.ITEM_SMART_BATTERY, 1),
             "CC ",
             "CC ",
             "   ",

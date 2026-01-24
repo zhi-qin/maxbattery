@@ -8,7 +8,7 @@ dependencies {
 
     // ❌ 不要写 implementation(project(":Torcherino-GTNH"))
     // ✅ 改为使用 Torcherino 的实际 Maven 坐标
-    implementation("com.github.czqwq:Torcherino:1.2.0-GTNH")
+//    implementation("com.github.czqwq:Torcherino:1.2.0-GTNH")
 }
 
 
