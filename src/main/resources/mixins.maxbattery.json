@@ -1,10 +1,10 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "com.github.vividfuzhu.maxbattery.machine.mixin",
+  "package": "com.github.vividfuzhu.maxbattery.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "ic2mixin"
+    "IC2Mixin"
   ],
   "refmap": "mixins.maxbattery.refmap.json",
   "verbose": true

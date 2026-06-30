@@ -17,6 +17,8 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import com.github.vividfuzhu.maxbattery.config.ModConfig;
+
 import gregtech.api.enums.SoundResource;
 import gregtech.api.enums.Textures;
 import gregtech.api.gui.modularui.GTUITextures;
@@ -49,22 +51,23 @@ public class MaxBatteryMiner extends MTEBasicMachine implements IAddUIWidgets {
     /**
      * 不同等级机器的工作半径配置
      * LV/MV: 8格, HV: 16格, EV: 24格, IV: 32格
+     * 数值定义见 {@link ModConfig#MINER_RADIUS}
      */
-    static final int[] RADIUS = { 8, 8, 16, 24, 32 };
+    private static final int[] RADIUS = ModConfig.MINER_RADIUS;
 
     /**
      * 不同等级机器的挖掘速度（刻数）- 性能优化的20倍加速版本
-     * 原值: {160, 160, 80, 40, 20} -> 现值: {8, 8, 4, 2, 1}
-     * 挖掘时间: LV/MV: 0.4秒, HV: 0.2秒, EV: 0.1秒, IV: 0.05秒
+     * 原值: {160, 160, 80, 40, 20} -> 现值: {8, 8, 4, 2, 1, 1}
+     * 数值定义见 {@link ModConfig#MINER_SPEED}
      */
-    static final int[] SPEED = { 8, 8, 4, 2, 1 }; // 原值除以20实现20倍加速
+    private static final int[] SPEED = ModConfig.MINER_SPEED;
 
     /**
-     * 不同等级机器的能耗（EU/t）- 为了保持总能耗不变，这里乘以20
-     * 原值: {8, 8, 32, 128, 512} -> 现值: {160, 160, 640, 2560, 10240}
-     * 总能耗保持一致：160*8=1280, 160*8=1280, 640*4=2560, 2560*2=5120, 10240*1=10240
+     * 不同等级机器的能耗（EU/t）
+     * 原值: {8, 8, 32, 128, 512} -> 现值: {160, 160, 640, 2560, 10240, 40960}
+     * 数值定义见 {@link ModConfig#MINER_ENERGY}
      */
-    static final int[] ENERGY = { 160, 160, 640, 2560, 10240 };
+    private static final int[] ENERGY = ModConfig.MINER_ENERGY;
 
     /**
      * 当前配置的工作半径，可通过螺丝刀调节
@@ -255,7 +258,7 @@ public class MaxBatteryMiner extends MTEBasicMachine implements IAddUIWidgets {
      */
     @Override
     public long maxEUStore() {
-        return Math.max(V[mTier] * 64L, 4096L); // 增加20倍存储容量 否 我删了一个 * 20L
+        return Math.max(V[mTier] * 64L, 4096L);
     }
 
     /**
@@ -276,7 +279,7 @@ public class MaxBatteryMiner extends MTEBasicMachine implements IAddUIWidgets {
      */
     @Override
     public long maxAmperesIn() {
-        return 40L; // 增加到40A以适应高能耗
+        return ModConfig.MINER_MAX_AMPERES;
     }
 
     /**
@@ -335,76 +338,43 @@ public class MaxBatteryMiner extends MTEBasicMachine implements IAddUIWidgets {
     }
 
     /**
-     * 检查指定槽位是否为有效槽位
-     * 只有输出槽是有效的
-     *
-     * @param aIndex 槽位索引
-     * @return true表示是有效槽位
-     */
-    // @Override
-    // public boolean isValidSlot(int aIndex) {
-    // return aIndex >= getOutputSlot() && aIndex < getOutputSlot() + 2; // 支持2个输出槽
-    // }
-    // 处理掉落逻辑的代码块，有点问题
-
-    /**
-     * 机器第一次tick时调用
-     * 初始化扫描状态
-     *
-     * @param aBaseMetaTileEntity 基础元TileEntity
+     * 机器第一次tick时调用，初始化扫描状态
      */
     @Override
     public void onFirstTick(IGregTechTileEntity aBaseMetaTileEntity) {
         if (aBaseMetaTileEntity.isServerSide()) {
-            scanYCursor = aBaseMetaTileEntity.getYCoord(); // 从机器所在 Y 开始向下扫描
-            hasScanned = false; // 标记为未扫描完成
-            oreBlockPositions.clear(); // 清空矿石位置列表
+            scanYCursor = aBaseMetaTileEntity.getYCoord();
+            hasScanned = false;
+            oreBlockPositions.clear();
         }
     }
 
-    /**
-     * 检查是否有足够的输出空间
-     * 检查两个输出槽是否还有空间存放物品
-     *
-     * @return true表示有足够空间
-     */
+    /** 检查两个输出槽是否还有空间存放物品 */
     public boolean hasFreeSpace() {
-        for (int i = getOutputSlot(); i < getOutputSlot() + 2; i++) { // 检查2个输出槽
-            if (mInventory[i] == null) return true; // 槽位为空
-            if (mInventory[i] != null && mInventory[i].stackSize < mInventory[i].getMaxStackSize()) return true; // 槽位未满
+        for (int i = getOutputSlot(); i < getOutputSlot() + 2; i++) {
+            if (mInventory[i] == null) return true;
+            if (mInventory[i].stackSize < mInventory[i].getMaxStackSize()) return true;
         }
-        return false; // 所有槽位都满了
+        return false;
     }
 
-    /**
-     * 使用螺丝刀右键点击时调用
-     * 用于调节工作半径
-     *
-     * @param side    点击的面
-     * @param aPlayer 玩家
-     * @param aX      X坐标
-     * @param aY      Y坐标
-     * @param aZ      Z坐标
-     * @param aTool   工具
-     */
     @Override
     public void onScrewdriverRightClick(ForgeDirection side, EntityPlayer aPlayer, float aX, float aY, float aZ,
         ItemStack aTool) {
         if (side != getBaseMetaTileEntity().getFrontFacing() && side != mMainFacing) {
             if (aPlayer.isSneaking()) {
-                radiusConfig = Math.max(0, radiusConfig - 1); // 潜行点击减小半径
+                radiusConfig = Math.max(0, radiusConfig - 1);
             } else {
-                radiusConfig = Math.min(RADIUS[mTier], radiusConfig + 1); // 普通点击增大半径
+                radiusConfig = Math.min(RADIUS[mTier], radiusConfig + 1);
             }
 
-            // 发送当前工作区域信息给玩家
             GTUtility.sendChatToPlayer(
                 aPlayer,
                 String.format(
-                    "%s %dx%d", // 格式："工作区域已设置为 XxY"
-                    StatCollector.translateToLocal("GT5U.machines.workareaset"), // 翻译键
-                    (radiusConfig * 2 + 1), // X轴范围
-                    (radiusConfig * 2 + 1))); // Y轴范围
+                    "%s %dx%d",
+                    StatCollector.translateToLocal("GT5U.machines.workareaset"),
+                    (radiusConfig * 2 + 1),
+                    (radiusConfig * 2 + 1)));
 
             // 重置扫描状态，触发重新扫描
             scanYCursor = getBaseMetaTileEntity().getYCoord();
@@ -427,391 +397,263 @@ public class MaxBatteryMiner extends MTEBasicMachine implements IAddUIWidgets {
         if (!aBaseMetaTileEntity.isServerSide()) return; // 只在服务端执行
 
         // 阶段 1：分帧扫描
-        if (!hasScanned) { // 如果还没有扫描完成
-            if (scanYCursor >= 0) { // 如果还在有效Y范围内
-                boolean madeProgress = false;
-                // 每tick最多扫描LAYERS_PER_TICK层，避免卡顿
+        if (!hasScanned) {
+            if (scanYCursor >= 0) {
                 for (int layer = 0; layer < LAYERS_PER_TICK && scanYCursor >= 0; layer++) {
-                    scanLayer(aBaseMetaTileEntity, scanYCursor); // 扫描当前层
-                    scanYCursor--; // Y坐标减1
-                    madeProgress = true;
+                    scanLayer(aBaseMetaTileEntity, scanYCursor);
+                    scanYCursor--;
                 }
-                if (scanYCursor < 0) { // 如果扫描完成
-                    hasScanned = true; // 标记为已扫描完成
-                    if (gregtech.api.enums.GTValues.debugBlockMiner) { // 如果启用调试
+                if (scanYCursor < 0) {
+                    hasScanned = true;
+                    if (gregtech.api.enums.GTValues.debugBlockMiner) {
                         GTLog.out
                             .println("MAXBATTERY MINER: Scan completed, found " + oreBlockPositions.size() + " ores");
                     }
                 }
             } else {
-                hasScanned = true; // Y坐标小于0，扫描完成
+                hasScanned = true;
             }
-            return; // 扫描阶段结束，返回
+            return;
         }
 
         // 阶段 2：挖掘阶段
-        if (!aBaseMetaTileEntity.isAllowedToWork()) return; // 检查机器是否被允许工作
-        if (!hasFreeSpace()) return; // 检查是否有输出空间
-        if (!aBaseMetaTileEntity.isUniversalEnergyStored(ENERGY[mTier])) return; // 检查是否有足够能源
+        if (!aBaseMetaTileEntity.isAllowedToWork()) return;
+        if (!hasFreeSpace()) return;
+        if (oreBlockPositions.isEmpty()) return; // 无矿石时不扣能量
 
-        // 性能优化：一次性处理20倍进度，而不是循环20次
-        int totalProgressToAdd = 20; // 20倍加速
+        // 每tick消耗 ENERGY[mTier] * 20 EU，产生 1 点进度
+        // ENERGY * 20 * SPEED = 原始总能耗/矿石（能量守恒）
+        long energyPerTick = ENERGY[mTier] * 20L;
+        if (!aBaseMetaTileEntity.isUniversalEnergyStored(energyPerTick)) return;
+        aBaseMetaTileEntity.decreaseStoredEnergyUnits(energyPerTick, true);
 
-        // 消耗能源（一次性消耗20倍的能源）
-        if (!aBaseMetaTileEntity.decreaseStoredEnergyUnits(ENERGY[mTier] * 20, false)) {
-            // 如果能源不足，按比例减少进度
-            long availableEnergy = aBaseMetaTileEntity.getUniversalEnergyStored();
-            int possibleTicks = (int) (availableEnergy / ENERGY[mTier]);
-            if (possibleTicks <= 0) return; // 没有足够能源执行一次挖掘
-            totalProgressToAdd = Math.min(20, possibleTicks);
-            aBaseMetaTileEntity.decreaseStoredEnergyUnits(ENERGY[mTier] * totalProgressToAdd, true);
-        } else {
-            // 能源充足，消耗全部20倍能源
-            aBaseMetaTileEntity.decreaseStoredEnergyUnits(ENERGY[mTier] * 20, true);
-        }
-
-        // 累加进度
-        currentMiningProgress += totalProgressToAdd;
+        currentMiningProgress += 1;
 
         // 一次性处理所有可能的挖掘
         while (currentMiningProgress >= mSpeed && !oreBlockPositions.isEmpty()) {
-            currentMiningProgress -= mSpeed; // 减去阈值
-            mineNextOre(aBaseMetaTileEntity); // 挖掘下一个矿石
+            currentMiningProgress -= mSpeed;
+            mineNextOre(aBaseMetaTileEntity);
         }
 
-        // 如果矿石挖完了，重新扫描
+        // 矿石挖完后触发重新扫描
         if (oreBlockPositions.isEmpty()) {
             scanYCursor = aBaseMetaTileEntity.getYCoord();
             hasScanned = false;
-            oreBlockPositions.clear();
         }
     }
 
-    /**
-     * 扫描指定Y层的矿石
-     * 遍历工作区域内所有方块，找到矿石并记录位置
-     *
-     * @param aBaseMetaTileEntity 基础元TileEntity
-     * @param scanY               要扫描的Y坐标
-     */
+    /** 扫描指定Y层的矿石，遍历工作区域内所有方块 */
     private void scanLayer(IGregTechTileEntity aBaseMetaTileEntity, int scanY) {
-        int machineX = aBaseMetaTileEntity.getXCoord(); // 获取机器X坐标
-        int machineZ = aBaseMetaTileEntity.getZCoord(); // 获取机器Z坐标
+        int machineX = aBaseMetaTileEntity.getXCoord();
+        int machineZ = aBaseMetaTileEntity.getZCoord();
 
-        // 遍历工作区域内所有方块
-        for (int dz = -radiusConfig; dz <= radiusConfig; dz++) { // Z轴偏移
-            for (int dx = -radiusConfig; dx <= radiusConfig; dx++) { // X轴偏移
-                int worldX = machineX + dx; // 计算世界X坐标
-                int worldZ = machineZ + dz; // 计算世界Z坐标
+        for (int dz = -radiusConfig; dz <= radiusConfig; dz++) {
+            for (int dx = -radiusConfig; dx <= radiusConfig; dx++) {
+                int worldX = machineX + dx;
+                int worldZ = machineZ + dz;
 
-                // 检查区块是否存在且地形已生成，避免访问无效区块
-                int chunkX = worldX >> 4; // 计算区块X坐标
-                int chunkZ = worldZ >> 4; // 计算区块Z坐标
+                // 检查区块是否存在且地形已生成
+                int chunkX = worldX >> 4;
+                int chunkZ = worldZ >> 4;
                 if (!aBaseMetaTileEntity.getWorld()
                     .getChunkProvider()
                     .chunkExists(chunkX, chunkZ)) {
-                    continue; // 区块不存在，跳过
+                    continue;
                 }
                 net.minecraft.world.chunk.Chunk chunk = aBaseMetaTileEntity.getWorld()
                     .getChunkFromChunkCoords(chunkX, chunkZ);
                 if (!chunk.isTerrainPopulated) {
-                    continue; // 区块地形未生成完成，跳过
+                    continue;
                 }
 
-                // 获取方块和元数据
                 Block block = aBaseMetaTileEntity.getWorld()
                     .getBlock(worldX, scanY, worldZ);
                 int meta = aBaseMetaTileEntity.getWorld()
                     .getBlockMetadata(worldX, scanY, worldZ);
 
-                // 检查是否为GregTech矿石
                 if (block instanceof BlockOresAbstract) {
                     TileEntity te = aBaseMetaTileEntity.getWorld()
                         .getTileEntity(worldX, scanY, worldZ);
-                    // 检查是否为天然矿石
                     if (te instanceof TileEntityOres && ((TileEntityOres) te).mNatural) {
-                        // 添加到矿石位置列表（使用相对坐标）
                         oreBlockPositions.add(new ChunkPosition(dx, scanY - aBaseMetaTileEntity.getYCoord(), dz));
                     }
-                } else if (GTUtility.isOre(block, meta)) { // 检查是否为其他模组的矿石
-                    // 添加到矿石位置列表（使用相对坐标）
+                } else if (GTUtility.isOre(block, meta)) {
                     oreBlockPositions.add(new ChunkPosition(dx, scanY - aBaseMetaTileEntity.getYCoord(), dz));
                 }
             }
         }
     }
 
-    /**
-     * 挖掘下一个矿石
-     * 从矿石位置列表中取出一个位置，挖掘对应的方块
-     *
-     * @param aBaseMetaTileEntity 基础元TileEntity
-     */
+    /** 挖掘下一个矿石，从矿石列表取出并破坏方块 */
     private void mineNextOre(IGregTechTileEntity aBaseMetaTileEntity) {
-        if (oreBlockPositions.isEmpty()) return; // 如果没有待挖掘矿石，返回
+        if (oreBlockPositions.isEmpty()) return;
 
-        ChunkPosition pos = oreBlockPositions.remove(0); // 取出第一个矿石位置
-        int x = aBaseMetaTileEntity.getXCoord() + pos.chunkPosX; // 计算世界X坐标
-        int y = aBaseMetaTileEntity.getYCoord() + pos.chunkPosY; // 计算世界Y坐标
-        int z = aBaseMetaTileEntity.getZCoord() + pos.chunkPosZ; // 计算世界Z坐标
+        ChunkPosition pos = oreBlockPositions.remove(0);
+        int x = aBaseMetaTileEntity.getXCoord() + pos.chunkPosX;
+        int y = aBaseMetaTileEntity.getYCoord() + pos.chunkPosY;
+        int z = aBaseMetaTileEntity.getZCoord() + pos.chunkPosZ;
 
-        // 二次验证：确保方块仍存在且是有效矿石
-        if (!aBaseMetaTileEntity.getWorld()
-            .blockExists(x, y, z)) {
-            return; // 方块不存在，跳过
-        }
+        if (!aBaseMetaTileEntity.getWorld().blockExists(x, y, z)) return;
 
-        Block block = aBaseMetaTileEntity.getWorld()
-            .getBlock(x, y, z);
-        int meta = aBaseMetaTileEntity.getWorld()
-            .getBlockMetadata(x, y, z);
+        Block block = aBaseMetaTileEntity.getWorld().getBlock(x, y, z);
+        int meta = aBaseMetaTileEntity.getWorld().getBlockMetadata(x, y, z);
 
         boolean isValidOre = false;
-        if (block instanceof BlockOresAbstract) { // 检查是否为GregTech矿石
-            TileEntity te = aBaseMetaTileEntity.getWorld()
-                .getTileEntity(x, y, z);
+        if (block instanceof BlockOresAbstract) {
+            TileEntity te = aBaseMetaTileEntity.getWorld().getTileEntity(x, y, z);
             if (te instanceof TileEntityOres && ((TileEntityOres) te).mNatural) {
                 isValidOre = true;
             }
-        } else if (GTUtility.isOre(block, meta)) { // 检查是否为其他模组矿石
+        } else if (GTUtility.isOre(block, meta)) {
             isValidOre = true;
         }
 
-        if (!isValidOre) { // 如果不是有效矿石，跳过
-            return;
-        }
+        if (!isValidOre) return;
 
-        // 获取矿石掉落物
         List<ItemStack> drops = block.getDrops(aBaseMetaTileEntity.getWorld(), x, y, z, meta, mTier);
         for (ItemStack drop : drops) {
             if (drop != null && drop.stackSize > 0) {
-                if (!addOutputToSlot(drop.copy())) { // 尝试添加到输出槽
-                    // 如果输出槽满了，直接在世界上生成物品
+                if (!addOutputToSlot(drop.copy())) {
+                    // 输出槽满时掉落至世界
                     aBaseMetaTileEntity.getWorld()
                         .spawnEntityInWorld(
                             new net.minecraft.entity.item.EntityItem(
-                                aBaseMetaTileEntity.getWorld(),
-                                x + 0.5,
-                                y + 0.5,
-                                z + 0.5,
-                                drop.copy()));
+                                aBaseMetaTileEntity.getWorld(), x + 0.5, y + 0.5, z + 0.5, drop.copy()));
                 }
             }
         }
-        aBaseMetaTileEntity.getWorld()
-            .setBlockToAir(x, y, z); // 破坏方块
+        aBaseMetaTileEntity.getWorld().setBlockToAir(x, y, z);
     }
 
-    /**
-     * 将物品添加到输出槽
-     * 优先合并相同物品，然后寻找空槽位
-     *
-     * @param stack 要添加的物品栈
-     * @return true表示成功添加
-     */
+    /** 将物品添加到输出槽，优先合并相同物品 */
     private boolean addOutputToSlot(ItemStack stack) {
-        if (stack == null || stack.stackSize <= 0) return false; // 无效物品栈
+        if (stack == null || stack.stackSize <= 0) return false;
 
-        // 遍历2个输出槽
         for (int slotOffset = 0; slotOffset < 2; slotOffset++) {
-            int slot = getOutputSlot() + slotOffset; // 计算实际槽位索引
-            if (mInventory[slot] == null) { // 如果槽位为空
-                mInventory[slot] = stack.copy(); // 直接放入
+            int slot = getOutputSlot() + slotOffset;
+            if (mInventory[slot] == null) {
+                mInventory[slot] = stack.copy();
                 return true;
-            } else if (GTUtility.areStacksEqual(mInventory[slot], stack) // 如果物品相同
-                && mInventory[slot].stackSize + stack.stackSize <= mInventory[slot].getMaxStackSize()) { // 且合并后不超过最大堆叠数
-                    mInventory[slot].stackSize += stack.stackSize; // 合并堆叠
+            } else if (GTUtility.areStacksEqual(mInventory[slot], stack)
+                && mInventory[slot].stackSize + stack.stackSize <= mInventory[slot].getMaxStackSize()) {
+                    mInventory[slot].stackSize += stack.stackSize;
                     return true;
                 }
         }
-        return false; // 所有槽位都不合适
+        return false;
     }
 
-    /**
-     * 检查是否允许从指定槽位拉取物品
-     * 只允许从输出槽拉取物品
-     *
-     * @param aBaseMetaTileEntity 基础元TileEntity
-     * @param aIndex              槽位索引
-     * @param side                方向
-     * @param aStack              物品栈
-     * @return true表示允许拉取
-     */
     @Override
     public boolean allowPullStack(IGregTechTileEntity aBaseMetaTileEntity, int aIndex, ForgeDirection side,
         ItemStack aStack) {
-        return aIndex >= getOutputSlot() && aIndex < getOutputSlot() + 2; // 允许从2个输出槽拉取
+        return aIndex >= getOutputSlot() && aIndex < getOutputSlot() + 2;
     }
 
-    /**
-     * 检查是否允许向指定槽位放入物品
-     * 采矿机不允许放入物品
-     *
-     * @param aBaseMetaTileEntity 基础元TileEntity
-     * @param aIndex              槽位索引
-     * @param side                方向
-     * @param aStack              物品栈
-     * @return true表示允许放入
-     */
     @Override
     public boolean allowPutStack(IGregTechTileEntity aBaseMetaTileEntity, int aIndex, ForgeDirection side,
         ItemStack aStack) {
-        return false; // 采矿机不允许放入物品
+        return false;
     }
 
-    /**
-     * 设置物品NBT数据
-     * 用于机器物品的序列化
-     *
-     * @param aNBT NBT标签
-     */
     @Override
     public void setItemNBT(NBTTagCompound aNBT) {
         super.setItemNBT(aNBT);
-        if (radiusConfig != RADIUS[mTier]) aNBT.setInteger("radiusConfig", radiusConfig); // 只在非默认值时保存
+        if (radiusConfig != RADIUS[mTier]) aNBT.setInteger("radiusConfig", radiusConfig);
     }
 
-    /**
-     * 保存NBT数据
-     * 用于机器数据的持久化存储
-     *
-     * @param aNBT NBT标签
-     */
     @Override
     public void saveNBTData(NBTTagCompound aNBT) {
         super.saveNBTData(aNBT);
-        aNBT.setInteger("radiusConfig", radiusConfig); // 保存半径配置
-        aNBT.setInteger("currentMiningProgress", currentMiningProgress); // 保存当前进度
-        aNBT.setBoolean("hasScanned", hasScanned); // 保存扫描状态
-        aNBT.setInteger("scanYCursor", scanYCursor); // 保存扫描光标
+        aNBT.setInteger("radiusConfig", radiusConfig);
+        aNBT.setInteger("currentMiningProgress", currentMiningProgress);
+        aNBT.setBoolean("hasScanned", hasScanned);
+        aNBT.setInteger("scanYCursor", scanYCursor);
     }
 
-    /**
-     * 加载NBT数据
-     * 用于机器数据的恢复
-     *
-     * @param aNBT NBT标签
-     */
     @Override
     public void loadNBTData(NBTTagCompound aNBT) {
         super.loadNBTData(aNBT);
         if (aNBT.hasKey("radiusConfig")) {
-            // 加载半径配置，确保在有效范围内
             radiusConfig = Math.min(RADIUS[mTier], Math.max(0, aNBT.getInteger("radiusConfig")));
         }
         if (aNBT.hasKey("currentMiningProgress")) {
-            currentMiningProgress = aNBT.getInteger("currentMiningProgress"); // 加载当前进度
+            currentMiningProgress = aNBT.getInteger("currentMiningProgress");
         }
         if (aNBT.hasKey("hasScanned")) {
-            hasScanned = aNBT.getBoolean("hasScanned"); // 加载扫描状态
+            hasScanned = aNBT.getBoolean("hasScanned");
         }
         if (aNBT.hasKey("scanYCursor")) {
-            scanYCursor = aNBT.getInteger("scanYCursor"); // 加载扫描光标
+            scanYCursor = aNBT.getInteger("scanYCursor");
         }
     }
 
-    /**
-     * 获取机器信息数据
-     * 显示在WAILA/HWYLA等工具中
-     *
-     * @return 信息字符串数组
-     */
     @Override
     public String[] getInfoData() {
         return new String[] {
-            EnumChatFormatting.BLUE + StatCollector.translateToLocal("GT5U.machines.miner") + EnumChatFormatting.RESET, // "采矿机"
-            StatCollector.translateToLocal("GT5U.machines.workarea") + ": " // "工作区域:"
+            EnumChatFormatting.BLUE + StatCollector.translateToLocal("GT5U.machines.miner") + EnumChatFormatting.RESET,
+            StatCollector.translateToLocal("GT5U.machines.workarea") + ": "
                 + EnumChatFormatting.GREEN
                 + (radiusConfig * 2 + 1)
                 + "x"
                 + (radiusConfig * 2 + 1)
                 + EnumChatFormatting.RESET
                 + " "
-                + StatCollector.translateToLocal("GT5U.machines.blocks"), // "方块"
-            StatCollector.translateToLocal("GT5U.machines.speed") + ": " // "速度:"
+                + StatCollector.translateToLocal("GT5U.machines.blocks"),
+            StatCollector.translateToLocal("GT5U.machines.speed") + ": "
                 + EnumChatFormatting.RED
-                + "20x " // 20倍速度
+                + "20x "
                 + EnumChatFormatting.RESET
-                + StatCollector.translateToLocal("GT5U.machines.faster") }; // "更快"
+                + StatCollector.translateToLocal("GT5U.machines.faster") };
     }
 
-    /**
-     * 获取UI属性
-     * 设置进度条纹理
-     *
-     * @return 基本UI属性
-     */
     @Override
     protected BasicUIProperties getUIProperties() {
         return super.getUIProperties().toBuilder()
-            .progressBarTexture(GTUITextures.fallbackableProgressbar("miner", GTUITextures.PROGRESSBAR_CANNER)) // 设置采矿机进度条纹理
+            .progressBarTexture(GTUITextures.fallbackableProgressbar("miner", GTUITextures.PROGRESSBAR_CANNER))
             .build();
     }
 
-    /**
-     * 获取活动音效循环
-     *
-     * @return 音效资源
-     */
     @SideOnly(Side.CLIENT)
     @Override
     protected SoundResource getActivitySoundLoop() {
-        return SoundResource.GTCEU_LOOP_MINER; // 返回采矿机音效
+        return SoundResource.GTCEU_LOOP_MINER;
     }
 
-    /**
-     * 机器爆炸时调用
-     * 将所有库存物品丢出到世界中
-     */
+    /** 机器爆炸时丢出所有库存物品 */
     @Override
     public void onExplosion() {
-        // 遍历2个输出槽
         for (int i = getOutputSlot(); i < getOutputSlot() + 2; i++) {
-            if (mInventory[i] != null) { // 如果槽位不为空
+            if (mInventory[i] != null) {
                 getBaseMetaTileEntity().getWorld()
                     .spawnEntityInWorld(
-                        new net.minecraft.entity.item.EntityItem( // 在世界上生成物品实体
+                        new net.minecraft.entity.item.EntityItem(
                             getBaseMetaTileEntity().getWorld(),
-                            getBaseMetaTileEntity().getXCoord() + 0.5, // X坐标（中心点）
-                            getBaseMetaTileEntity().getYCoord() + 0.5, // Y坐标（中心点）
-                            getBaseMetaTileEntity().getZCoord() + 0.5, // Z坐标（中心点）
-                            mInventory[i])); // 物品栈
-                mInventory[i] = null; // 清空槽位
+                            getBaseMetaTileEntity().getXCoord() + 0.5,
+                            getBaseMetaTileEntity().getYCoord() + 0.5,
+                            getBaseMetaTileEntity().getZCoord() + 0.5,
+                            mInventory[i]));
+                mInventory[i] = null;
             }
         }
     }
 
-    /**
-     * 适配加速火把 - 提供增加进度的方法
-     *
-     * @param aProgressAmount 进度增加量
-     */
+    /** 适配加速火把 - 增加进度并触发挖掘 */
     public void increaseProgressForAccelerator(int aProgressAmount) {
-        // 加速当前的挖掘进度
         currentMiningProgress += aProgressAmount;
 
-        // 检查是否达到挖掘阈值
-        if (currentMiningProgress >= mSpeed) {
-            currentMiningProgress = 0;
+        while (currentMiningProgress >= mSpeed) {
+            currentMiningProgress -= mSpeed;
             if (oreBlockPositions.isEmpty()) {
-                // 重新扫描
                 scanYCursor = getBaseMetaTileEntity().getYCoord();
                 hasScanned = false;
-                oreBlockPositions.clear();
                 return;
             }
-            // 如果有可用矿石，立即挖掘
             mineNextOre(getBaseMetaTileEntity());
         }
     }
 
-    /**
-     * 返回当前进度 - 供加速火把使用
-     *
-     * @return 当前进度值
-     */
+    /** 返回当前进度，供加速火把使用 */
     public int getProgresstime() {
-        // 如果正在挖掘，返回当前进度；否则返回0
         return currentMiningProgress > 0 ? currentMiningProgress : 0;
     }
 }

@@ -1,0 +1,4 @@
+tile.maxbattery.tick_furnace.name=Tick Furnace
+container.tickFurnace=Tick Furnace
+item.maxbattery.infiniteCoolantCell.name=Infinite Coolant Cell
+item.maxbattery.smart.name=Smart Battery

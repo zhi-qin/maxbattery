@@ -2,31 +2,30 @@ package com.github.vividfuzhu.maxbattery.item;
 
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.StatCollector;
+
+import com.github.vividfuzhu.maxbattery.config.ModConfig;
 
 import ic2.api.reactor.IReactor;
 import ic2.api.reactor.IReactorComponent;
-
-// import gregtech.api.GregTechAPI; // 如需
 
 /**
  * 无限冷却单元
  * 该物品实现 IReactorComponent 接口，以便在 IC2 核反应堆中作为冷却组件使用。
  * 它旨在模拟一个拥有无限容量且能持续从反应堆整体温度中吸收热量的组件。
  */
-public class InfiniteCoolantCell extends Item implements IReactorComponent { // 实现 IReactorComponent
+public class InfiniteCoolantCell extends Item implements IReactorComponent {
 
     public InfiniteCoolantCell() {
         super();
-        setUnlocalizedName("infiniteCoolantCell"); // 设置本地化键名 (旧版方式)
-        setTextureName("maxbattery:infinite_coolant_cell"); // 设置图标纹理名称 (旧版方式)
-        // setCreativeTab(GregTechAPI.TAB_GREGTECH); // 设置创造模式标签页 (如需)
-        setMaxStackSize(64); // 设置最大堆叠数量
+        setUnlocalizedName("infiniteCoolantCell");
+        setTextureName("maxbattery:infinite_coolant_cell");
+        setMaxStackSize(64);
     }
 
-    // --- 新增：直接在代码中定义显示名称 ---
     @Override
     public String getItemStackDisplayName(ItemStack stack) {
-        return "无限冷却热熔"; // 直接返回你想要的中文名称
+        return StatCollector.translateToLocal("item.maxbattery.infiniteCoolantCell.name");
     }
 
     // --- IReactorComponent 接口方法 ---
@@ -161,8 +160,8 @@ public class InfiniteCoolantCell extends Item implements IReactorComponent { // 
         // 1. 它能够吸收传入的 aHeat。
         // 2. 它还能从反应堆的全局热量中额外吸收热量。
 
-        // 定义一个常量，表示每 Tick 额外从反应堆中吸收的热量
-        int extraAbsorption = 10000; // 额外吸收的热量，可根据需要调整大小
+        // 每 tick 额外从反应堆中吸收的热量
+        int extraAbsorption = ModConfig.COOLANT_EXTRA_ABSORPTION;
 
         // 计算总共需要从反应堆中移除的热量
         // 这包括了需要抵消的传入热量 (aHeat) 和额外的冷却量 (extraAbsorption)

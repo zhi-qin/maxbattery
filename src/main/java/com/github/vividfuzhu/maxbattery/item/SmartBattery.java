@@ -1,4 +1,3 @@
-// 文件路径: src/main/java/com/github/vividfuzhu/maxbattery/item/SmartBattery.java
 package com.github.vividfuzhu.maxbattery.item;
 
 import java.util.List;
@@ -10,6 +9,9 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 
+import com.github.vividfuzhu.maxbattery.MaxBattery;
+import com.github.vividfuzhu.maxbattery.config.ModConfig;
+
 import gregtech.api.GregTechAPI;
 import gregtech.api.enums.GTValues;
 import gregtech.api.interfaces.tileentity.IGregTechTileEntity;
@@ -17,17 +19,8 @@ import gregtech.api.items.MetaBaseItem;
 
 public class SmartBattery extends MetaBaseItem {
 
-    // --- 将原来的静态常量移到这里，并改为 public static，以便主类可以访问 ---
-    public static SmartBattery ITEM_SMART_BATTERY; // 静态实例，在主类 preInit 中初始化
-
     private static final String[] TIER_NAMES = { "ULV", "LV", "MV", "HV", "EV", "IV", "LuV", "ZPM", "UV", "UHV", "UEV",
         "UIV", "UMV", "UXV", "MAX", "OPV" };
-
-    // 静态初始化块，用于延迟初始化（虽然实际初始化在 MaxBattery.preInit 中进行，但声明在这里）
-    static {
-        // INSTANCE 将在 MaxBattery.preInit 中被赋值
-        ITEM_SMART_BATTERY = null;
-    }
 
     public SmartBattery() {
         super("maxbattery.smart");
@@ -35,7 +28,7 @@ public class SmartBattery extends MetaBaseItem {
         this.setMaxStackSize(1);
         String textureName = "maxbattery:maxbattery_smart";
         this.setTextureName(textureName);
-        System.out.println("[SmartBattery Constructor] Texture name set to: " + textureName);
+        MaxBattery.LOG.info("SmartBattery constructor: Texture name set to: {}", textureName);
     }
 
     @Override
@@ -44,7 +37,7 @@ public class SmartBattery extends MetaBaseItem {
         int currentTier = getCurrentTier(aStack);
 
         // 安全容量：1万亿EU
-        long capacity = Long.MAX_VALUE - 1_000_000_000L;
+        long capacity = Long.MAX_VALUE - ModConfig.BATTERY_CAPACITY_MARGIN;
 
         // 获取当前电压值
         long voltage = getVoltageValue(currentTier);
@@ -158,7 +151,7 @@ public class SmartBattery extends MetaBaseItem {
     private int getMachineTier(IGregTechTileEntity gtTile) {
         try {
             long inputV = gtTile.getInputVoltage(); // 官方只读 API
-            System.out.println("[SmartBattery] 机器输入电压 = " + inputV + " EU/t");
+            MaxBattery.LOG.debug("SmartBattery: 机器输入电压 = {} EU/t", inputV);
 
             // 电压值 -> 电压等级
             long[] stdV = GTValues.V;
@@ -169,11 +162,10 @@ public class SmartBattery extends MetaBaseItem {
             return 0; // 比 ULV 还小，兜底 ULV
 
         } catch (Exception e) {
-            // System.out.println("Error reading machine voltage: " + e.getMessage());
+            MaxBattery.LOG.warn("SmartBattery: 读取机器电压失败，返回默认LV", e);
         }
 
         // 默认返回 LV (1)
-        // System.out.println("Using default voltage tier: 1 (LV)");
         return 1;
     }
 
@@ -184,7 +176,7 @@ public class SmartBattery extends MetaBaseItem {
                     .getMetaName();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            MaxBattery.LOG.warn("SmartBattery: 获取机器名称失败", e);
         }
         return "未知机器";
     }

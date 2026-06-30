@@ -1,0 +1,4 @@
+tile.maxbattery.tick_furnace.name=tick熔炉
+container.tickFurnace=tick熔炉
+item.maxbattery.infiniteCoolantCell.name=无限冷却热熔
+item.maxbattery.smart.name=智能电池
