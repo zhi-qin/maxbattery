@@ -25,7 +25,7 @@
 - 当热量 ≥ 99% 最大热量时，强制锁定在 99% 并阻止爆炸
 - 安全网机制，防止反应堆过热损坏
 
-### 🏭 杂酚油炼煤机 (CoalFromCreosote)
+### 🏭 杂酚油炼煤机 (MTECreosoteCoalConverter)
 - 青铜外观，无需电力
 - 消耗 1000mB 杂酚油 → 产出 1 个煤炭
 - 正面为物品输出口，底面/顶面为流体输入口
@@ -33,7 +33,7 @@
 - 8 个熔炉围框合成
 
 ### ⛏️ 超速采矿机 (MaxBatteryMiner)
-- 支持 LV / MV / HV 三个电压等级
+- 支持 LV / MV / HV / EV / IV 五个电压等级
 - **内置 20 倍加速**，无需外部加速设备
 - 分帧扫描机制，每 tick 扫描 2 层，避免服务器卡顿
 - 使用螺丝刀调节工作半径（潜行=缩小，普通=增大）
@@ -50,8 +50,8 @@
 - 自动管理燃烧动画元数据
 
 ### 🔧 调试辅助
-- **无尽导线**：3 原石合成（meta=11435）
-- **Debug 维护仓**：1 维护仓无序合成（meta=15497）
+- **无尽导线**：3 原石合成
+- **Debug 维护仓**：1 维护仓无序合成
 
 ---
 
@@ -59,37 +59,40 @@
 
 ```
 src/main/java/com/github/vividfuzhu/maxbattery/
-├── MaxBattery.java                    ← @Mod 主入口
+├── MaxBattery.java                         ← @Mod 主入口
+├── config/
+│   ├── ModIds.java                         ← ID 常量中心（机器 ID + 调试物品 meta）
+│   └── ModConfig.java                      ← 可调参数中心（采矿机/熔炉/冷却/电池）
+├── init/
+│   ├── ModItems.java                       ← 物品注册中心
+│   ├── ModBlocks.java                      ← 方块注册中心
+│   ├── ModMachines.java                    ← GT 机器注册
+│   └── ModRecipes.java                     ← 配方注册
 ├── item/
-│   ├── ModItems.java                  ← 物品注册中心
-│   ├── SmartBattery.java              ← 智能电池
-│   └── InfiniteCoolantCell.java       ← 无限冷却单元
+│   ├── SmartBattery.java                   ← 智能电池
+│   └── InfiniteCoolantCell.java            ← 无限冷却单元
+├── block/
+│   └── furnace/
+│       ├── BlockTickFurnace.java           ← Tick熔炉方块
+│       └── TileTickFurnace.java            ← Tick熔炉 TileEntity
 ├── machine/
-│   ├── bronze/
-│   │   └── TileCoalFromCreosote.java  ← 杂酚油炼煤机
-│   ├── furnace/
-│   │   ├── BlockTickFurnace.java      ← Tick熔炉方块 (继承BlockFurnace)
-│   │   └── TileTickFurnace.java       ← Tick熔炉TileEntity (100倍加速)
-│   ├── miner/
-│   │   └── MaxBatteryMiner.java       ← 超速采矿机
-│   ├── mixin/
-│   │   └── ic2mixin.java              ← IC2 反应堆防爆 Mixin
-│   └── recipe/
-│       ├── ModMachines.java           ← 机器注册
-│       └── ModRecipes.java            ← 配方注册
-└── wire/
-    └── Maxwire.java                   ← [已废弃] 导线类
+│   ├── creosote/
+│   │   └── MTECreosoteCoalConverter.java   ← 杂酚油炼煤机
+│   └── miner/
+│       └── MaxBatteryMiner.java            ← 超速采矿机
+└── mixin/
+    └── IC2Mixin.java                       ← IC2 反应堆防爆 Mixin
 
 src/main/resources/
-├── mixins.maxbattery.json             ← Mixin 配置文件
-├── mcmod.info                         ← 模组元信息
+├── mixins.maxbattery.json                  ← Mixin 配置文件
+├── mcmod.info                              ← 模组元信息
 └── assets/maxbattery/
     ├── lang/
-    │   ├── zh_CN.lang                 ← 中文语言文件
-    │   └── en_US.lang                 ← 英文语言文件
+    │   ├── zh_CN.lang                      ← 中文语言文件
+    │   └── en_US.lang                      ← 英文语言文件
     └── textures/items/
-        ├── infinite_coolant_cell.png  ← 无限冷却单元贴图
-        └── maxbattery_smart.png       ← 智能电池贴图
+        ├── infinite_coolant_cell.png       ← 无限冷却单元贴图
+        └── maxbattery_smart.png            ← 智能电池贴图
 ```
 
 ---
@@ -118,24 +121,11 @@ src/main/resources/
 
 ## 📝 开发规范
 
-- **日志输出**：必须使用 Log4j Logger（`MaxBattery.LOG.info/warn/error`），禁止 `System.out`/`System.err`
+- **日志输出**：必须使用 Log4j Logger（`MaxBattery.LOG`），禁止 `System.out`/`System.err`
 - **物品注册**：`MetaBaseItem` 子类构造时已自动注册，**禁止重复调用** `GameRegistry.registerItem`
 - **机器输入输出面**：遵循 GT 电力机器标准（正面=物品输出，非正面=输入）
 - **非电力机器**：使用伪装电力机器模式（`isElectric()=true` 但 `maxEUInput()=0`）以复用父类 IO 逻辑
-- **配置外置化**：ID、半径等常量定义在类静态字段中，便于统一管理
-
----
-
-## 📋 待办事项
-
-- [ ] 全面替换 `System.out.println` 为 Log4j Logger
-- [ ] 修复 MaxBatteryMiner 能源扣减逻辑
-- [ ] 注册 EV / IV 等级采矿机
-- [ ] 完善 `mcmod.info` 模组描述信息
-- [ ] 补充语言文件（智能电池、无限冷却单元、采矿机等物品的翻译）
-- [ ] 清理废弃的 `Maxwire.java`
-- [ ] Mixin 类重命名为 PascalCase
-- [ ] 使用构建系统生成的版本号常量
+- **配置外置化**：所有可调参数集中在 `ModConfig`，ID 常量集中在 `ModIds`，新增机器只需扩展这两个文件
 
 ---
 
